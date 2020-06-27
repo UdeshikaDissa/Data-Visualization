@@ -1,0 +1,334 @@
+---
+title: "MATH2270 Assignment 2"
+subtitle: Visualising Open Data
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+## Student Details
+
+*  Udeshika Dissanayake (s3400652)
+
+## Data Source
+
+- Australian Bureau of Statistics. (2018). *5609.0 - Housing Finance, Australia, July 2018*. Available from http://www.abs.gov.au/AUSSTATS/abs@.nsf/DetailsPage/5609.0July%202018?OpenDocument
+
+## Video Presentation URL
+
+- https://drive.google.com/file/d/1PKSnehrGQl6yKEkVDdGMl3Mn72uT0reV/view?usp=sharing
+
+## Code
+
+```{r message=FALSE, warning=FALSE,comment=NA}
+# Load packages
+
+library(ggplot2)  # Simple, verstile plots
+library(tidyr)    # Restructuring original datasets (from wide to long format)
+library(dplyr)    # Data manipulation (factor levels, labels etc.)
+library(cowplot)  # Grids for output layout
+library(RColorBrewer)  # Colour-blind friendly palettes
+library(xlsx)   # Data loading
+```
+
+
+
+```{r message=FALSE, warning=FALSE,comment=NA, include=FALSE}
+setwd("C:/Users/udesh/OneDrive/RMIT/2018_Sem2/MATH2270 Data Visualisation/Assignments/Ass2")
+```
+
+
+```{r message=FALSE, warning=FALSE,comment=NA}
+#Load data
+housing_commitments <- read.xlsx("housing_commitments.xlsx",sheetIndex = 2)
+housing_commitments$State <- factor(housing_commitments$State,
+                                    levels =c("NSW","VIC","QLD","SA","WA","TAS","NT","ACT"),
+                                    ordered = TRUE)
+
+```
+
+```{r message=FALSE, warning=FALSE,comment=NA}
+# **First plot: line plot of summed total housing finance commitment in each state during 1992-2017**
+
+# Data preparation
+housing <- housing_commitments %>% filter(Year<2018 , Year>1991)
+
+# Create plot object with relevant variables
+plot1 <- ggplot(housing, aes(x=Year, y=TOTAL,group=State,stat="identity"))
+
+# Specify plot type
+plot1 <- plot1 + geom_line(aes(color=State),size=1.0) 
+
+# Add title, caption, x & Y axis labels
+plot1 <- plot1 + labs(x="Year",
+                      y="Total Finance Commitment ($'000,000)",
+                      title="Total Housing finance Commitment by State (1992-2017)")
+# Selecting x axis limits
+plot1 <- plot1 +scale_x_continuous(breaks=seq(1992,2017,2))
+
+# Selecting y axis limits
+plot1 <- plot1 +scale_y_continuous(breaks=seq(0,100000,10000))
+
+# Update main title, caption, subtitle and legend properties for better clarity 
+plot1<- plot1 + theme(plot.title = element_text(lineheight=1.5, face="bold",size=13),
+                      legend.title = element_text(lineheight=1,face="bold",size=13),
+                      plot.caption = element_text(size=9, hjust=0, margin=margin(t=15)),
+                      plot.subtitle = element_text(lineheight=1.5,face="bold",size=9),
+                      legend.text = element_text(lineheight=1,size=12),
+                      axis.text = element_text(lineheight=1,size=10),
+                      axis.title = element_text(lineheight=1,size=12),
+                      axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5))
+
+# Specify colour palette
+plot1<- plot1 +scale_colour_brewer(type = "div", palette = "Set1")
+
+# Print the plot
+plot1
+```
+
+
+
+```{r message=FALSE, warning=FALSE,comment=NA}
+# **Second plot: Purpose of the housing finance commitment in 2017 by State**
+
+# Data preparation
+housing1 <- housing %>% filter(Year==2017) %>% select(-(TOTAL))
+housing1 <- housing1 %>% gather(key="Purpose", value ="value", 3:5)
+housing1$Purpose <- factor(housing1$Purpose,
+                        levels = c("financed_excluding_refinancing",
+                                   "Refinancing_of_established_dwellings",
+                                   "Alterations_and_additions"), 
+                        labels = c("Financed excluding refinancing",
+                                   "Refinancing of established dwellings",
+                                   "Alterations and additions"),
+                        ordered = TRUE)
+
+# Create plot object with relevant variables
+plot2 <- ggplot(housing1, aes(x=State,y=value,fill=Purpose)) 
+
+# Specify plot type
+plot2 <- plot2 + geom_bar(position="dodge", colour="black",stat="identity",width=0.75)
+
+# Add title, caption, x & Y axis labels
+plot2 <- plot2 + labs(x="State (2017)",
+                      y="Total housing finance commitment ($'000,000)",
+                      title="              Purpose of the housing finance commitment in 2017 by State")
+
+# Selecting y axis limits
+plot2 <- plot2 +scale_y_continuous(breaks=seq(0,70000,10000))
+
+# Update main title, caption, subtitle and legend properties for better clarity 
+plot2<- plot2 + theme(plot.title = element_text(lineheight=1.5, face="bold",size=13),
+                      legend.title = element_text(lineheight=1,face="bold",size=13),
+                      plot.caption = element_text(size=9, hjust=0, margin=margin(t=15)),
+                      plot.subtitle = element_text(lineheight=1.5,face="bold",size=9),
+                      legend.text = element_text(lineheight=1,size=12),
+                      axis.text = element_text(lineheight=1,size=10),
+                      axis.title = element_text(lineheight=1,size=12),
+                      axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5))
+# Specify colour palette
+plot2 <- plot2 + scale_fill_brewer(palette="Dark2") 
+
+# Print the plot
+plot2
+```
+
+
+
+```{r message=FALSE, warning=FALSE,comment=NA, include=FALSE}
+
+# **First grid: Using Plot1 & Plot2 
+
+# Create title object for combine visualisation of plot1 and plot2
+title_main <- ggdraw() + draw_label("\nThe housing finance commitment by State\n", 
+                                    fontface = "bold", size = 22)
+
+# Both plots to share centered y-axis label 
+title_yaxis <- ggdraw() + draw_label("Finance commitment ($'000,000)", angle=90) 
+
+# Display plots together (vertically) 
+grid <- plot_grid(title_main,                   
+                  # hide existing y-axis labels
+                  plot1 + theme(axis.title.y=element_blank()),
+                  plot2 + theme(axis.title.y=element_blank()),
+                  ncol=1, align="v",
+                  rel_heights = c(0.1,0.9,0.9))
+
+# Add title to juxtaposed plots 
+grid1 <- plot_grid(title_yaxis,
+                   grid,
+                   ncol=2,
+                   rel_widths = c(0.025,1))
+# Print the grid
+grid1 
+```
+
+
+
+
+```{r message=FALSE, warning=FALSE,comment=NA}
+# **Third plot: Purpose of the housing finance commitment in 2007 by State**
+
+# Data preparation
+housing2 <- housing %>% filter(Year==2007) %>% select(-(TOTAL))
+housing2 <- housing2 %>% gather(key="Purpose", value ="value", 3:5)
+housing2$Purpose <- factor(housing2$Purpose,
+                        levels = c("financed_excluding_refinancing",
+                                   "Refinancing_of_established_dwellings",
+                                   "Alterations_and_additions"), 
+                        labels = c("Financed excluding refinancing",
+                                   "Refinancing of established dwellings",
+                                   "Alterations and additions"),
+                        ordered = TRUE)
+
+# Ccreate plot object with relevant variables
+plot3 <- ggplot(housing2, aes(x=State,y=value,fill=Purpose)) 
+
+# Specify plot type
+plot3 <- plot3 + geom_bar(position="dodge", colour="black",stat="identity",width=0.75)
+
+# Create box plots and add title, caption, x & Y axis labels
+plot3 <- plot3 + labs(x="State (2007)",
+                      y="Total housing finance commitment ($'000,000)",
+                      title="               Purpose of the housing finance commitment in 2007 by State")
+
+# Selecting y axis limits
+plot3 <- plot3 +scale_y_continuous(breaks=seq(0,70000,10000))
+
+# Update main title, caption, subtitle and legend properties for better clarity 
+plot3<- plot3 + theme(plot.title = element_text(lineheight=1.5, face="bold",size=13),
+                      legend.title = element_text(lineheight=1,face="bold",size=13),
+                      plot.caption = element_text(size=9, hjust=0, margin=margin(t=15)),
+                      plot.subtitle = element_text(lineheight=1.5,face="bold",size=9),
+                      legend.text = element_text(lineheight=1,size=12),
+                      axis.text = element_text(lineheight=1,size=10),
+                      axis.title = element_text(lineheight=1,size=12),
+                      axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5))
+# Specify colour palette
+plot3 <- plot3 + scale_fill_brewer(palette="Dark2") 
+
+# Print the plot
+plot3
+```
+
+
+```{r message=FALSE, warning=FALSE,comment=NA,fig.width = 10, fig.height = 7.0}
+# **Create a grid for plot2 & pot3**
+
+# Create title object for combine visualisation for plot2 & pot3
+title_main1 <- ggdraw() + draw_label("\nPurpose of the housing finance commitment by State\n",
+                                     fontface = "bold", size = 13)
+
+# Create legend object for combine visualisation for plot2 & pot3
+legend_main1 <- get_legend(plot2+
+                             theme(legend.direction = "horizontal",
+                                   legend.justification="center",
+                                   legend.position = "bottom",
+                                   legend.title =
+                                     element_text(lineheight=1,face="bold",size=12),
+                                   legend.text = element_text(lineheight=1,size=12)))
+
+# Display plots together (horizontlly) 
+grid3<- plot_grid(
+                  plot3 + theme(legend.text = element_blank(),
+                                legend.position="none",
+                                axis.title.y=element_blank(),
+                                plot.title = element_blank()),
+                  plot2 + theme(legend.text = element_blank(),
+                                
+                                axis.title.y=element_blank(),
+                                legend.position="none",
+                                plot.title = element_blank()))
+grid3<-plot_grid(title_main1,grid3,legend_main1,ncol=1,rel_heights = c(0.1,1))
+
+
+# Print the grid
+grid3
+
+
+# **Create a grid for plot1 & grid3**
+
+# Create title object for entire visualisation 
+title_main3 <- ggdraw() + draw_label("\nThe Housing Finance Commitments in Australia\n", fontface = "bold", size = 22)
+
+# Both plots to share centered y-axis label 
+title_yaxis <- ggdraw() + draw_label("Finance Commitment ($'000,000)", angle=90)
+
+# Display plots together (vertically) 
+grid4 <- plot_grid(title_main3,                   
+                  # hide existing y-axis labels
+                  plot1 + theme(axis.title.y=element_blank()),
+                                    ncol=1, align="v",
+                  rel_heights = c(0.1,0.9,0.9),
+                  grid3)
+# Add title to juxtaposed plots 
+grid5 <- plot_grid(title_yaxis,
+                   grid4,
+                   ncol=2,
+                   rel_widths = c(0.025,1)) 
+# Print the grid
+grid5
+```
+
+
+```{r message=FALSE, warning=FALSE,comment=NA, fig.width = 5, fig.height = 7}
+# **Fourth plot: Purpose of the housing finance commitment 1992-2017**
+
+# Data preparation
+housing3 <- housing_commitments %>%  filter(Year<2018 , Year>1991)
+housing3 <- housing3 %>% mutate(ave_financing=financed_excluding_refinancing/TOTAL,
+                                ave_refinancing=Refinancing_of_established_dwellings/TOTAL,
+                                ave_addition=Alterations_and_additions/TOTAL)
+
+housing3 <- housing3 %>% select(Year,ave_financing:ave_addition)
+
+housing3 <- housing3 %>% gather(key="Purpose", value ="Ammount", 2:4)
+
+housing3 <- housing3%>% group_by(Year,Purpose) %>% 
+  summarise(total=sum(Ammount,na.rm = TRUE)/7)
+housing3$Purpose <- factor(housing3$Purpose,
+                        levels = c("ave_financing",
+                                   "ave_refinancing",
+                                   "ave_addition"), 
+                        labels = c("Financed excluding refinancing",
+                                   "Refinancing of established dwellings",
+                                   "Alterations and additions"),
+                        ordered = TRUE)
+
+# Create plot object with relevant variables
+plot6 <- ggplot(housing3, aes(x=Year, y=total,group=Purpose,stat="identity"))
+
+# Specify plot type
+plot6 <- plot6 + geom_line(aes(color=Purpose),size=1.0)
+
+# Create box plots and add title, caption, x & Y axis labels
+plot6 <- plot6 + labs(x="Year",
+                      y="Proportion of Finance Commitment",
+                      title="Proportions of Housing finance in Australia (1992-2017)")
+# Selecting x axis limits
+plot6 <- plot6 +scale_x_continuous(breaks=seq(1991,2017,2))
+
+# Selecting y axis limits
+plot6 <- plot6 +scale_y_continuous(breaks=seq(0,1,0.1))
+
+# Update main title, caption, subtitle and legend properties for better clarity 
+plot6<- plot6 + theme(plot.title = element_text(lineheight=1.5, face="bold",size=12),
+                      legend.title = element_text(lineheight=1,face="bold",size=12),
+                      plot.caption = element_text(size=9, hjust=0, margin=margin(t=12)),
+                      plot.subtitle = element_text(lineheight=1.5,face="bold",size=9),
+                      legend.text = element_text(lineheight=1,size=12),
+                      axis.text = element_text(lineheight=1,size=10),
+                      axis.title = element_text(lineheight=1,size=12),
+                      axis.text.x = element_text(angle = 90, hjust = 0.5, vjust = 0.5),
+                      legend.position = "bottom",
+                      legend.direction = "vertical",
+                      legend.justification="center")
+
+# Specify colour palette
+plot6<- plot6 +scale_colour_brewer(type = "div", palette = "Dark2")
+
+# Print the plot
+plot6
+```
+

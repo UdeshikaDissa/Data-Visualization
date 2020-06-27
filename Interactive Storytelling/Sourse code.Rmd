@@ -1,0 +1,243 @@
+---
+title: "MATH2270 Assignment 3"
+subtitle: Interactive Storytelling
+output:
+  word_document: default
+  html_document:
+    df_print: paged
+---
+
+## Student Details
+
+* Udeshika Dissanayake (s3400652)
+
+## Story URL
+
+- Charis Chang. (2018, September 1). The Australians at risk of becoming 'mortgage prisoners'. Retrieved from  
+https://www.news.com.au/finance/money/costs/the-australians-at-risk-of-becoming-mortgage-prisoners/news-story/f8f3bd92868dab66280bd23c6315868c
+
+## Data Source
+
+- Australian Bureau of Statistics. (2018). 5609.0 - Housing Finance, Australia, July 2018. Available online at: http://www.abs.gov.au/AUSSTATS/abs@.nsf/DetailsPage/5609.0July%202018?OpenDocument.
+
+## Visualisation URL
+
+ https://udeshikadissa.shinyapps.io/AUS_HOUSING/
+
+## Code
+
+```{r eval = FALSE}
+# Load packages and prepare data
+
+library(ggplot2)
+library(shiny)
+library(plotly)
+library(tidyr)    # Restructuring original datasets (from wide to long format)
+library(dplyr)    # Data manipulation (factor levels, labels etc.)
+library(RColorBrewer)
+library(xlsx)   # Data loading
+
+#Load data
+housing_com <- read.xlsx("housing_commitments.xlsx",sheetIndex = 2)
+housing_com$State <- factor(housing_com$State,
+                            levels =c("NSW","VIC","QLD","SA","WA","TAS","ACT","NT"),
+                            ordered = TRUE)
+housing_com <- housing_com %>% filter(Year>1992,Year<2018)
+housing3 <- housing_com %>% select(Year,State,TOTAL,ave_financing:ave_addition)
+housing3 <- housing3 %>% gather(key="Purpose", value ="Amount", 4:6)
+housing3$Purpose <- factor(housing3$Purpose,
+                           levels = c("ave_financing",
+                                      "ave_refinancing",
+                                      "ave_addition"), 
+                           labels = c("Financed excluding refinancing",
+                                      "Refinancing of established dwellings",
+                                      "Alterations and additions"),
+                           ordered = TRUE)
+#for line plot 1
+housing4 <- housing3%>% group_by(Year,Purpose) %>% 
+summarise(total=round(sum(Amount,na.rm = TRUE)/7,3))
+
+
+#for line plot 2
+
+housing5 <- housing_com %>% select(Year,State,TOTAL,Y_Y_Change_financing:Y_Y_Change_additon)
+housing5 <- housing5 %>% gather(key="Purpose", value ="Growth", 4:6)
+housing5$Purpose <- factor(housing5$Purpose,
+                           levels = c("Y_Y_Change_financing",
+                                      "Y_Y_Change_refinancing",
+                                      "Y_Y_Change_additon"), 
+                           labels = c("Financed excluding refinancing",
+                                      "Refinancing of established dwellings",
+                                      "Alterations and additions"),
+                           ordered = TRUE)
+housing5 <- left_join(housing3,housing5,by=c("Year", "State","TOTAL", "Purpose"))
+
+# Assign server function
+
+server5 <- function(input, output) {
+  
+  output$selected_year <- renderText({      
+    paste("Year", input$Year)   }) 
+  
+  output$selected_purpose <- renderText({      
+    paste("Purpose", input$Purpose)   }) 
+  
+  
+  #scatter plot
+  output$scatter <- renderPlotly({
+    ggplotly(ggplot(housing5,aes(x = TOTAL, y = Amount, fill = State,stroke=0.2)) +
+                      geom_point(data = filter(housing5,
+                                               Purpose==input$Purpose,Year==input$Year),
+                                 alpha=0.7)+
+               aes(size=Growth)+
+               scale_size(name = "")+
+               scale_x_continuous(limits = c(200,95000))+
+               scale_y_continuous(limits = c(0,0.9))+
+               labs( title = 'Housing Finance Commitment in Australia (Y_to_Y Growth % : Point Size)<br>Source:<a href="http://www.abs.gov.au/ausstats/abs@.nsf/0/05DBCE56402EC566CA25723D000F2999?Opendocument">Housing data</a>',
+                     y =  "Proportion of Finance for Selected Purpose",
+                     x = "Total Finance Commitment ($'000,000)")+
+               theme(axis.title = element_text(lineheight=1,size=9,
+                                               face="bold",colour = "gray40"))+
+               scale_fill_brewer(palette = "Dark2") 
+               
+      
+      
+      
+      
+    )
+    
+
+  })
+  
+  #line plot 1
+  output$line <- renderPlotly({
+    plot_ly(housing4) %>%
+      group_by(Purpose) %>%
+      add_trace(x=~Year, y=~total, group=~Purpose, color=~Purpose, 
+                mode="lines",colors = "Set1") %>% 
+      
+      layout( yaxis = list(zeroline = FALSE, title = "Proportion of Finance Commitment"),
+              xaxis = list(zeroline = FALSE, title = "Year"))%>%
+      add_segments(x=input$Year, xend=input$Year, 
+                   y=0, yend=1,
+                   line = list(dash = "dot"),
+                   color=I("BLACK"),
+                   size=I(1),
+                   showlegend=F,
+                   name=" ",
+                   hoverinfo = "text",
+                   text=paste(input$Year))
+      
+      
+    
+    
+  })
+  
+  #line plot 2
+  output$line2 <- renderPlotly({
+    plot_ly(data = filter(housing5,Purpose==input$Purpose,State==input$State)) %>%
+      group_by(State) %>%
+      add_trace(x=~Year, y=~Growth, group=~State, color=~State, 
+                mode="lines",colors = "Dark2") %>% 
+      
+    
+      layout( title = paste(input$Purpose,"(1993-2017)"),
+              titlefont=list(size=15),
+              yaxis = list(zeroline = TRUE, 
+                           title = "Growth % (Year_to_Year)",
+                           range=c(-50,200)),
+              xaxis = list(zeroline = FALSE, title = "Year",range=c(1993,2017)),
+              showlegend=T)%>%
+      add_segments(x=input$Year, xend=input$Year, 
+                   y=-50, yend=175,
+                   line = list(dash = "dot"),
+                   color=I("BLACK"),
+                   size=I(1),
+                   showlegend=F,
+                   name=" ",
+                   hoverinfo = "text",
+                   text=paste(input$Year,input$State))
+    
+    
+    
+    
+  }) 
+  
+  
+  
+  
+  
+}
+
+# Create ui
+
+ui5 <- fluidPage(
+  titlePanel("Australian Owner Occupation Housing Finance and Australian Economy"),
+  sidebarLayout(
+    sidebarPanel(
+      h3("Select the loan purpose"),
+      selectInput("Purpose",  label = "Purpose", 
+                  choices =  c(levels(housing3$Purpose)), 
+                  selected = "Refinancing of established dwellings"),
+      helpText("Select Loan purpose to visualize the evolution"), 
+      
+      h3("Select the year"),
+      sliderInput("Year", label = "Year", 
+                  min = 1993, sep="", step = 1, 
+                  max = 2017, value = 1993, 
+                  animate = animationOptions(interval = 500, loop = FALSE)
+                  ),
+      helpText("Select year to see the statistics. Play to start the animation") ,
+    br(),
+    br(),
+    br(),
+  
+    
+    h3("Select the state"),
+    selectInput("State",  label = "State", 
+                choices =  c(levels(housing5$State)), 
+                selected = "NSW",
+                multiple = FALSE),
+    helpText("Select State to see the growth of each finance purpose"), 
+
+    br(),
+    br(),
+ 
+    
+    h3("About the App"),
+    helpText("The owner occupation housing finance commitments in Australia is ever growing in 
+             alarming rate. There is a very high rate of loan refinancing as well. 
+             With these very high rates of finance commitments, Australians are at a risk of 
+             becoming 'mortgage prisoners'. This tool is intended to analyze the evolution and 
+             growth of owner occupation finance commitment under three main loan types that are 
+             notioned as 'Purpose'. Select the 'Purpose' from the drop-down list and click the 'Play' 
+             button to see the evolution of the Propotion of each loan purpose for different Australian 
+             states. Also, the Year-to-Year growth of selected loan purpose can be visualized under 
+             'Growth of Housing Financing Commitment by Purpose' tab for selected state"),
+    helpText(a("See the full article",
+               href="https://www.news.com.au/finance/money/costs/the-australians-at-risk-of-becoming-mortgage-prisoners/news-story/f8f3bd92868dab66280bd23c6315868c"))) ,
+  
+    mainPanel(
+      h3(textOutput("selected_year")), 
+      p(textOutput("selected_purpose")),
+      
+      plotlyOutput("scatter"),
+              tabsetPanel(type="tabs",
+                          tabPanel("Proportions of the Loan Purpose",
+                                   plotlyOutput("line")),
+                          tabPanel("Growth of Housing Financing Commitment by Purpose",
+                          plotlyOutput("line2"))
+                          )
+              )
+))
+
+# Deploy app
+
+shinyApp(ui = ui5, server = server5)
+```
+
+
+
+
+
+
