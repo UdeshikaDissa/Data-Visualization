@@ -4,8 +4,7 @@ Interactive storytelling through advance data visualization using R, ggplot2, Sh
 
 ## Visualising Housing Finace Australia (Using ggplot2)
 
-Data Source: http://www.abs.gov.au/AUSSTATS/abs@.nsf/DetailsPage/5609.0July%202018?OpenDoc
-ument
+Data Source: http://www.abs.gov.au/AUSSTATS/abs@.nsf/DetailsPage/5609.0July%202018?OpenDocument
 
 Data-set: housing_commitments.xlsx
 
